@@ -111,41 +111,94 @@ function fromJSON(proto, json) {
  *
  *  For more examples see unit tests.
  */
-class selectorBuilder {
+class Builder {
   constructor(selectorType, value) {
     this.selectors = [];
     this.selectorsOrder = ['element', 'id', 'class', 'attr', 'pseudoClass', 'pseudoElement'];
     this[selectorType](value);
     return this;
   }
+
+  process(type, value) {
+    if (['element', 'id', 'pseudoElement'].includes(type) && this.selectors.find((v) => v.type === type)) {
+      throw new Error('Element, id and pseudo-element should not occur more then one time inside the selector');
+    }
+    if (this.selectorsOrder.slice(this.selectorsOrder.indexOf(type) + 1)
+      .some((v) => this.selectors.map((s) => s.type).includes(v))) {
+      throw new Error('Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element');
+    }
+    this.selectors.push({ type, value });
+  }
+
+  element(value) {
+    this.process('element', value);
+    return this;
+  }
+
+  id(value) {
+    this.process('id', `#${value}`);
+    return this;
+  }
+
+  class(value) {
+    this.process('class', `.${value}`);
+    return this;
+  }
+
+  attr(value) {
+    this.process('attr', `[${value}]`);
+    return this;
+  }
+
+  pseudoClass(value) {
+    this.process('pseudoClass', `:${value}`);
+    return this;
+  }
+
+  pseudoElement(value) {
+    this.process('pseudoElement', `::${value}`);
+    return this;
+  }
+
+  static combine(selector1, combinator, selector2) {
+    return {
+      value: `${selector1.stringify()} ${combinator} ${selector2.stringify()}`,
+      stringify() { return this.value; },
+    };
+  }
+
+  stringify() {
+    return this.selectors.map((v) => v.value).join('');
+  }
 }
+
 const cssSelectorBuilder = {
   element(value) {
-    return value;
+    return new Builder('element', value);
   },
 
   id(value) {
-    return value;
+    return new Builder('id', value);
   },
 
   class(value) {
-    return value;
+    return new Builder('class', value);
   },
 
   attr(value) {
-    return value;
+    return new Builder('attr', value);
   },
 
   pseudoClass(value) {
-    return value;
+    return new Builder('pseudoClass', value);
   },
 
   pseudoElement(value) {
-    return value;
+    return new Builder('pseudoElement', value);
   },
 
   combine(selector1, combinator, selector2) {
-    return selectorBuilder.combine(selector1, combinator, selector2);
+    return Builder.combine(selector1, combinator, selector2);
   },
 };
 
